@@ -67,12 +67,14 @@ if __name__ == "__main__":
 
             # 带入光学模型计算
             time_start = time.time()
-            re_fringe = torch.zeros(batch_size, 3, 224, 224, device=device)
-            for b in range(batch_size):
-                re_fringe[b] = stress2fringe(re_stressmap[b], ss_interaction)       # 循环调用，每张图需要0.25s
+            # re_fringe = torch.zeros(batch_size, 3, 224, 224, device=device)
+            # for b in range(batch_size):
+            #     re_fringe[b] = stress2fringe(re_stressmap[b], ss_interaction)       # 循环调用，每张图需要0.25s
+
+            re_fringe = stress2fringe(re_stressmap, ss_interaction)
 
             time_end = time.time()
-            # print("stressmap2fringe take: ", time_end - time_start, "s")
+            print("stressmap2fringe take: ", time_end - time_start, "s")
 
             re_loss = criterion(re_fringe, fringe_img)
             re_loss.backward()

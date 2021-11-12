@@ -25,29 +25,31 @@ class Stress2Fringe(nn.Module):
         # 0> 设置参数
         Stress_Max = 72e6           # Maximun stress value that could exist within the experiments (in Pa).
         Stress_Magnitude = 72e6     # Stress magnitude to scale the continuous surface (in Pa). ？？？没看懂
+                                    # <应该就是图片到真实应力的缩放系数>这个系数决定了图片长什么样子，有多亮
         h = 0.01                    # Body thickness in m.
         C = 3.5e-12                 # Stress optic coefficient (in m^2/N).
 
-        # 1> 处理网络输出的re_stressmap
-        Stress_map = Stress_map.squeeze()
+        # 1> 处理网络输出的re_stressmap (b, 1, 224, 224) -> (b, 224, 224)
+        stress_in = Stress_map.squeeze(1)
 
         # 2> Preprocessing input parameters
-        rows, columns = 224, 224
-        stress_in = (Stress_map - Stress_map.min()) / (Stress_map.max() - Stress_map.min())     # 归一化到[0, 1]
-        stress_in = stress_in * Stress_Magnitude
+        bs, rows, columns = stress_in.shape
+
+        stress_in = (stress_in - stress_in.min()) / (stress_in.max() - stress_in.min())     # 归一化到[0, 1]
+        stress_in = stress_in * Stress_Magnitude        # 真实应力，单位Pa
 
         Spectral_range = torch.linspace(390, 760, 371)      # 光谱的波长
 
         # 3> Generating the isochromatic image from the (dark field polariscope)  暗场应该是：无背景光强Ia
-        Isochromatic = torch.zeros(rows, columns, 3, device=self.device)
+        Isochromatic = torch.zeros(bs, rows, columns, 3, device=self.device)
         for i in range(371):
             phase = 2 * math.pi * h * C * stress_in / (1e-9 * Spectral_range[i])
             for j in range(3):
-                Isochromatic[:, :, j] = Isochromatic[:, :, j] + (interaction[i, j] / 2) * (1 - torch.cos(phase))
+                Isochromatic[:, :, :, j] = Isochromatic[:, :, :, j] + (interaction[i, j] / 2) * (1 - torch.cos(phase))
 
-        isochromatic = Isochromatic / Isochromatic.max()
+        # isochromatic = Isochromatic / Isochromatic.max()
 
-        stressMap = stress_in / Stress_Max
+        # stressMap = stress_in / Stress_Max
 
         # # 4> Introducing the Bayer effetc using a 'grbg' cfa filter
         # Img_bayer = torch.zeros(rows, columns)
@@ -64,9 +66,11 @@ class Stress2Fringe(nn.Module):
 
         # 后处理
         # iso_fringe = torch.from_numpy(iso_fringe)
-        iso_fringe = isochromatic.permute(2, 0, 1).unsqueeze(0)
+        # iso_fringe = isochromatic.permute(2, 0, 1).unsqueeze(0)
+        iso_fringe = Isochromatic.permute(0, 3, 2, 1)
+        iso_fringe = iso_fringe / iso_fringe.max()
 
-        return iso_fringe, stressMap
+        return iso_fringe, stress_in
 
     def forward(self, stressmap, ss_interaction):
 
