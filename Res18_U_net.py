@@ -11,16 +11,16 @@ class ResBlock(nn.Module):
         super().__init__()
         self.double_conv = nn.Sequential(
             nn.Conv2d(in_ch, out_ch, kernel_size=3, stride=stride, padding=1),
-            nn.GroupNorm(out_ch // 16, out_ch),
+            nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=True),
             nn.Conv2d(out_ch, out_ch, 3, 1, 1),
-            nn.GroupNorm(out_ch // 16, out_ch),
+            nn.BatchNorm2d(out_ch),
         )
         self.shortcut = nn.Sequential()
         if stride != 1 or in_ch != out_ch:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_ch, out_ch, kernel_size=1, stride=stride),
-                nn.GroupNorm(out_ch // 16, out_ch),
+                nn.BatchNorm2d(out_ch),
             )
 
     def forward(self, x):
@@ -39,7 +39,7 @@ class ResEncoder(nn.Module):
         self.in_ch = 32
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channel, 32, kernel_size=7, stride=2, padding=3),
-            nn.GroupNorm(32 // 16, 32),
+            nn.BatchNorm2d(32),
             nn.ReLU()
         )
         self.layer1 = self.make_layer(ResBlock, 32, 2, stride=1)
@@ -74,11 +74,11 @@ class UpBlock(nn.Module):
         super().__init__()
         self.double_conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=(3, 3), padding=(1, 1)),
-            nn.GroupNorm(out_channels // 16, out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
 
             nn.Conv2d(out_channels, out_channels, kernel_size=(3, 3), padding=(1, 1)),
-            nn.GroupNorm(out_channels // 16, out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
 
@@ -99,11 +99,11 @@ class UpBlock(nn.Module):
 class StressDecoder(nn.Module):
     def __init__(self, out_channel):
         super().__init__()
-        self.up1 = UpBlock(256, 128)
-        self.up2 = UpBlock(128, 64)
-        self.up3 = UpBlock(64, 32)
-        self.up4 = UpBlock(32, 16)
-        self.outlayer = nn.Conv2d(16, out_channel, kernel_size=(1, 1))
+        self.up1 = UpBlock(256, 256)
+        self.up2 = UpBlock(256, 128)
+        self.up3 = UpBlock(128, 64)
+        self.up4 = UpBlock(64, 32)
+        self.outlayer = nn.Conv2d(32, out_channel, kernel_size=(1, 1))
 
     def forward(self, x):
         x = self.up1(x)
