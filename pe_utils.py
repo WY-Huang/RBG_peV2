@@ -41,11 +41,11 @@ class Stress2Fringe(nn.Module):
         Spectral_range = torch.linspace(390, 760, 371)      # 光谱的波长
 
         # 3> Generating the isochromatic image from the (dark field polariscope)  暗场应该是：无背景光强Ia
-        Isochromatic = torch.zeros(bs, rows, columns, 3, device=self.device)
+        Isochromatic = torch.zeros(bs, 3, rows, columns, device=self.device)
         for i in range(371):
             phase = 2 * math.pi * h * C * stress_in / (1e-9 * Spectral_range[i])
             for j in range(3):
-                Isochromatic[:, :, :, j] = Isochromatic[:, :, :, j] + (interaction[i, j] / 2) * (1 - torch.cos(phase))
+                Isochromatic[:, j, :, :] = Isochromatic[:, j, :, :] + (interaction[i, j] / 2) * (1 - torch.cos(phase))
 
         # isochromatic = Isochromatic / Isochromatic.max()
 
@@ -67,7 +67,7 @@ class Stress2Fringe(nn.Module):
         # 后处理
         # iso_fringe = torch.from_numpy(iso_fringe)
         # iso_fringe = isochromatic.permute(2, 0, 1).unsqueeze(0)
-        iso_fringe = Isochromatic.permute(0, 3, 2, 1)
+        iso_fringe = Isochromatic
         iso_fringe = iso_fringe / iso_fringe.max()
 
         return iso_fringe, stress_in
