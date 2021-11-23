@@ -23,7 +23,7 @@ class Stress2Fringe(nn.Module):
         :param Stress_map: Continuous surface or gray map.
         """
         # 0> 设置参数
-        Stress_Max = 72e6           # Maximun stress value that could exist within the experiments (in Pa).
+        # Stress_Max = 72e6         # Maximun stress value that could exist within the experiments (in Pa).
         Stress_Magnitude = 72e6     # Stress magnitude to scale the continuous surface (in Pa). ？？？没看懂
                                     # <应该就是图片到真实应力的缩放系数>这个系数决定了图片长什么样子，有多亮
         h = 0.01                    # Body thickness in m.
@@ -33,17 +33,21 @@ class Stress2Fringe(nn.Module):
         stress_in = Stress_map.squeeze(1)
 
         # 2> Preprocessing input parameters
-        bs, rows, columns = stress_in.shape
+        bs, rows, columns = stress_in.shape     # bs, 224, 224
 
-        stress_in = (stress_in - stress_in.min()) / (stress_in.max() - stress_in.min())     # 归一化到[0, 1]
-        stress_in = stress_in * Stress_Magnitude        # 真实应力，单位Pa
+        # 每个batch中的单个样本分别归一化
+        stress_nomal = torch.zeros_like(stress_in)
+        for i in range(bs):
+            stress_nomal[i] = (stress_in[i] - stress_in[i].min()) / (stress_in[i].max() - stress_in[i].min())
+        # stress_in = (stress_in - stress_in.min()) / (stress_in.max() - stress_in.min())     # 归一化到[0, 1]
+        stress_real = stress_nomal * Stress_Magnitude        # 真实应力，单位Pa
 
         Spectral_range = torch.linspace(390, 760, 371)      # 光谱的波长
 
         # 3> Generating the isochromatic image from the (dark field polariscope)  暗场应该是：无背景光强Ia
         Isochromatic = torch.zeros(bs, 3, rows, columns, device=self.device)
         for i in range(371):
-            phase = 2 * math.pi * h * C * stress_in / (1e-9 * Spectral_range[i])
+            phase = 2 * math.pi * h * C * stress_real / (1e-9 * Spectral_range[i])
             for j in range(3):
                 Isochromatic[:, j, :, :] = Isochromatic[:, j, :, :] + (interaction[i, j] / 2) * (1 - torch.cos(phase))
 
@@ -67,16 +71,19 @@ class Stress2Fringe(nn.Module):
         # 后处理
         # iso_fringe = torch.from_numpy(iso_fringe)
         # iso_fringe = isochromatic.permute(2, 0, 1).unsqueeze(0)
-        iso_fringe = Isochromatic
-        iso_fringe = iso_fringe / iso_fringe.max()
+        iso_fringe = torch.zeros_like(Isochromatic)       # (bs, 3, 224, 224)
+        # 每个batch中的fringe分别归一化
+        for k in range(bs):
+            iso_fringe[k] = Isochromatic[k] / Isochromatic[k].max()
+        # iso_fringe = iso_fringe / iso_fringe.max()
 
         return iso_fringe, stress_in
 
     def forward(self, stressmap, ss_interaction):
 
-        fringes, _ = self.stress2fringe(stressmap, ss_interaction)
+        fringes, stress = self.stress2fringe(stressmap, ss_interaction)
 
-        return fringes
+        return fringes, stress
 
 
 def load_SSdata():
