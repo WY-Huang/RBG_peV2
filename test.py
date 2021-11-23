@@ -9,7 +9,7 @@ from pe_utils import Stress2Fringe, load_SSdata
 
 # 1> 加载训练好的模型
 # device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
-model_path = "result/1120-1348/models/loss_best_model.pth"
+model_path = "result/1122-1944/models/loss_best_model.pth"
 
 net = ResStressnet(3, 1)
 # net = net.to(device)
@@ -33,7 +33,7 @@ with torch.no_grad():
         net.eval()
         predict_stressmap = net(fringe)
 
-        fringe_out = Stress2Fringe("cpu")(predict_stressmap, ss_interaction)
+        fringe_out, stress_out = Stress2Fringe("cpu")(predict_stressmap, ss_interaction)
 
         # 绘图
         plt.figure(figsize=(12, 3))
@@ -47,7 +47,7 @@ with torch.no_grad():
 
         plt.subplot(143)
         plt.title("predict_stressmap")
-        plt.imshow(predict_stressmap.squeeze(0).permute(1, 2, 0), "gray")
+        plt.imshow(stress_out.squeeze(0), "gray")
 
         plt.subplot(144)
         plt.title("recover_fringe")
