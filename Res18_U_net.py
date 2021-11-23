@@ -12,7 +12,7 @@ class ResBlock(nn.Module):
         self.double_conv = nn.Sequential(
             nn.Conv2d(in_ch, out_ch, kernel_size=3, stride=stride, padding=1),
             nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Conv2d(out_ch, out_ch, 3, 1, 1),
             nn.BatchNorm2d(out_ch),
         )
@@ -75,11 +75,11 @@ class UpBlock(nn.Module):
         self.double_conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=(3, 3), padding=(1, 1)),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
 
             nn.Conv2d(out_channels, out_channels, kernel_size=(3, 3), padding=(1, 1)),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(),
         )
 
         # if bilinear, use the normal convolutions to reduce the number of channels
@@ -123,6 +123,7 @@ class ResStressnet(nn.Module):
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
+        x = torch.sigmoid(x)
         return x
 
 
