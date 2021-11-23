@@ -17,7 +17,7 @@ from torchvision import utils, transforms
 from PeDataSet import PeDataSet
 from Res18_U_net import ResStressnet
 from pe_utils import Stress2Fringe, copy_codes, load_SSdata
-from ms_ssim import MS_SSIM
+# from ms_ssim import MS_SSIM
 
 # tensorboard --logdir=result/0907-2145
 if __name__ == "__main__":
@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     # 1> 读取数据(1, c, h, w)
     batch_size = 32
-    datapath = "pe_data/data_2000"
+    datapath = "pe_data/data_100"
     trans = transforms.ToTensor()
     trainsets = PeDataSet(datapath, trans)
     train_dataloader = DataLoader(trainsets, batch_size, shuffle=True, num_workers=4, drop_last=True)
@@ -45,14 +45,15 @@ if __name__ == "__main__":
     net = net.to(device)
 
     # 3> 定义损失函数和优化器
-    inital_lr = 0.000001
-    epochs = 150
+    inital_lr = 0.001
+    epochs = 200
 
     # criterion = torch.nn.MSELoss()
-    criterion = MS_SSIM()
-    criterion = criterion.to(device)
+    # criterion = MS_SSIM()
+    # criterion = criterion.to(device)
+    criterion = torch.nn.L1Loss()
     optimizer = optim.Adam(net.parameters(), lr=inital_lr)
-    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(epochs // 4))
 
     # 4> 训练
     loss_init = 1000
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     # 训练循环
     for epoch in range(epochs):
         print(f"start epoch {epoch}")
-        # curr_lr = scheduler.get_last_lr()[0]        # 获取当前学习率
+        curr_lr = scheduler.get_last_lr()[0]        # 获取当前学习率
 
         Loss = []
         Loss_mean = 0
@@ -85,7 +86,7 @@ if __name__ == "__main__":
             # for b in range(batch_size):
             #     re_fringe[b] = stress2fringe(re_stressmap[b], ss_interaction)       # 循环调用，每张图需要0.25s
 
-            re_fringe = stress2fringe(re_stressmap, ss_interaction)
+            re_fringe, re_stress = stress2fringe(re_stressmap, ss_interaction)
 
             # time_end = time.time()
             # print("stressmap2fringe take: ", time_end - time_start, "s")
@@ -101,7 +102,7 @@ if __name__ == "__main__":
 
             # 输出tqdm的信息
             train_bar.set_postfix_str(
-                f"Epoch: {epoch}, Lr: {inital_lr}, Loss_mean: {Loss_mean}, "
+                f"Epoch: {epoch}, Lr: {curr_lr}, Loss_mean: {Loss_mean}, "
                 f"Step: {step}, Loss_train: {detach_loss:.5f}")
 
             writer.add_scalar(f'Loss_by/step', np.array(detach_loss), len(train_dataloader) * epoch + step)
@@ -110,7 +111,7 @@ if __name__ == "__main__":
             # 拼接输入条纹图，重建应力图，重建条纹图，真实应力图
             if epoch > 0.7 * epochs and step < 2:
                 three_vs = torch.cat((fringe_img, re_fringe), dim=0)
-                two_vs = torch.cat((truth_stressmap, re_stressmap), dim=0)
+                two_vs = torch.cat((truth_stressmap, re_stress), dim=0)
                 img_grid = utils.make_grid(three_vs, nrow=batch_size)
                 img_grid2 = utils.make_grid(two_vs, nrow=batch_size)
                 writer.add_image(f"{epoch}_Fringes/RawFringe+ReFringe_{step}", img_grid)
@@ -121,7 +122,8 @@ if __name__ == "__main__":
             tqdm.write(f"-----save model epoch_{epoch}-----")
             torch.save(net.state_dict(), save_path + "/loss_best_model.pth")
         # tensorboard写入信息
-        # writer.add_scalar('Lr', np.array(curr_lr), epoch)
-        # scheduler.step()
+        writer.add_scalar('Lr', np.array(curr_lr), epoch)
+        if epoch > 100:
+            scheduler.step()
 
         writer.add_scalar('Loss_by/epoch', np.mean(Loss), epoch)
